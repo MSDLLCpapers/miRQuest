@@ -1,0 +1,17 @@
+services:
+  mirquest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mirquest:latest
+    container_name: mirquest-app
+    ports:
+      - "3838:3838"
+    # volumes:
+      # Optional: Mount a local directory for persistent data output
+      # Uncomment the lines below to enable persistent storage
+      # - ./output:/app/output
+    restart: unless-stopped
+    environment:
+      # Set any environment variables here if needed
+      - SHINY_LOG_LEVEL=INFO
