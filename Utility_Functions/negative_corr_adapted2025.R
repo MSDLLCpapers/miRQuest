@@ -31,23 +31,41 @@ negative_cor <- function(
           mirna <- as.numeric(data_2[j, 1:(ncol(mirna_data) - 5)])
           tmp <- stats::cor(mrna, mirna, method = method)
           
+          valid <- !(is.na(mrna) | is.na(mirna))    
+          x <- mrna[valid]                          
+          y <- mirna[valid]                         
+          
+          # Ensure enough data points for cor.test and use cor.test
+          if (length(x) >= 3) {                                                    
+            test <- try(stats::cor.test(x, y, method = method), silent = TRUE)     
+            if (inherits(test, "try-error")) {                                     
+              next                                                                  
+            }                                                                       
+            tmp  <- unname(test$estimate)           
+            pval <- test$p.value                     
             
-          print(paste0("The row indices are ", i, " for mrna, and ",j, " for mirna"))
-          print(tmp)
-          if (tmp < cor_cut) {
-            corr[[n]] <- row.names(data_2)[j]
-            corr[[n]][2] <- row.names(data_1)[i]
-            corr[[n]][3] <- tmp
-            corr[[n]][4] <- data_2[["log_ratio"]][j]
-            corr[[n]][5] <- data_2[["P-adjust"]][j]
-            corr[[n]][6] <- data_2[["mean_case"]][j]
-            corr[[n]][7] <- data_2[["mean_control"]][j]
-            corr[[n]][8] <- data_1[["log_ratio"]][i]
-            corr[[n]][9] <- data_1[["P-adjust"]][i]
-            corr[[n]][10] <- data_1[["mean_case"]][i]
-            corr[[n]][11] <- data_1[["mean_control"]][i]
-            n <- n + 1
-          }
+            print(paste0("The row indices are ", i, " for mrna, and ", j, " for mirna"))
+            print(tmp)
+            
+            if (tmp < cor_cut) {
+              # MODIFIED: Insert pval as a new element (4th position) in the stored result
+              corr[[n]] <- c(
+                row.names(data_2)[j],               # miRNA
+                row.names(data_1)[i],               # Gene
+                tmp,                                # correlation
+                pval,                               # NEW: correlation p-value
+                data_2[["log_ratio"]][j],
+                data_2[["P-adjust"]][j],
+                data_2[["mean_case"]][j],
+                data_2[["mean_control"]][j],
+                data_1[["log_ratio"]][i],
+                data_1[["P-adjust"]][i],
+                data_1[["mean_case"]][i],
+                data_1[["mean_control"]][i]
+              )
+              n <- n + 1
+            }
+          }  
         
         }
         # Update progress based on the mrna_data row
@@ -60,19 +78,47 @@ negative_cor <- function(
 
   corr <- cal_cor(mrna_data, mirna_data, cut.off)
 
-  corr <- do.call(rbind, corr)
+  corr <- if (length(corr)) do.call(rbind, corr) else NULL    
 
   if (is.null(corr)) {
     cut.off <- cut.off + 0.2
     corr <- cal_cor(mrna_data, mirna_data, cut.off)
-    corr <- do.call(rbind, corr)
+    corr <- if (length(corr)) do.call(rbind, corr) else NULL
   }
+  
+  # If still NULL, return empty data frame with expected columns
+  if (is.null(corr)) {                                        # NEW
+    last_column <- "Correlation"                              # NEW
+    colnames_out <- c(                                        # NEW
+      "miRNA", "Gene", last_column, "P-value(correlation)",   # NEW: added p-value column name
+      "logratio_miRNA", "P-adjust(miRNA)",
+      "mean_case(miRNA)", "mean_control(miRNA)",
+      "logratio_gene", "P-adjust(gene)",
+      "mean_case(gene)", "mean_control(gene)"
+    )
+    return(data.frame(matrix(ncol = length(colnames_out), nrow = 0,
+                             dimnames = list(NULL, colnames_out))))   # NEW
+  }
+  
+  # Convert to data.frame and set column names
+  corr <- as.data.frame(corr, stringsAsFactors = FALSE)      
+  
+  
   last_column <- paste("Correlation")
-  colnames(corr) <- c("miRNA", "Gene", last_column,
+  colnames(corr) <- c("miRNA", "Gene", last_column, "P-value(correlation)", 
                       "logratio_miRNA", "P-adjust(miRNA)",
                       "mean_case(miRNA)", "mean_control(miRNA)",
                       "logratio_gene", "P-adjust(gene)",
                       "mean_case(gene)", "mean_control(gene)")
+  
+  # coerce numeric columns appropriately (since we built with c())
+  numeric_cols <- c(last_column, "P-value(correlation)",
+                    "logratio_miRNA", "P-adjust(miRNA)",
+                    "mean_case(miRNA)", "mean_control(miRNA)",
+                    "logratio_gene", "P-adjust(gene)",
+                    "mean_case(gene)", "mean_control(gene)")
+  corr[numeric_cols] <- lapply(corr[numeric_cols], function(z) suppressWarnings(as.numeric(z)))  # MODIFIED
+  
   return(corr)
 }
 

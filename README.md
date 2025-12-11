@@ -9,7 +9,28 @@ MiRQuest is an RShiny application for the analysis of microRNA-sequencing data. 
 ![miRQuest Workflow Diagram](mir_quest_workflow_diagram.jpeg)
 
 ## Reproducibility
-Please note that MiRQuest was built with the following specifications. `Renv` has been utilized to automatically install the package versions utilized at the time of build to aid in reproducibility; however, this may not solve all the issues if users are working with older versions of R < 4.4.2, for which we recommend running the app in a Docker container. We provide several installation options below.
+
+MiRQuest provides **two complementary approaches** for ensuring computational reproducibility:
+
+### Option 1: renv (R Package Management)
+Use `renv` to restore the exact R package versions used in this project. This approach works well if you have R 4.4.2 already installed and want to work within your existing R environment.
+
+**Best for:**
+- Users with R 4.4.2 installed
+- Active development and modification of the code
+- When you need to integrate with other R projects
+
+### Option 2: Docker (Complete Environment Isolation)
+Use Docker to recreate the **entire computational environment**, including R version, system libraries, and all dependencies in a self-contained container.
+
+**Best for:**
+- **Publications and long-term reproducibility** (strongly recommended)
+- Users with R versions < 4.4.2
+- Avoiding conflicts with existing R installations
+- Cross-platform consistency (Windows/Mac/Linux)
+- Archiving computational environments with publications
+
+**We strongly recommend Docker (Method 3 below) for publication-quality reproducibility**, as it captures not just R package versions but the complete system environment. However, renv (Methods 1-2 below) is suitable for development and quick testing if you already have R 4.4.2 installed.
 
 ### Using renv Lock Files for Different Operating Systems
 
@@ -79,6 +100,158 @@ nickname       Pile of Leaves
 - To stop the app, close the app window or click the "STOP" sign in RStudio.
 - Assumptions
   - Have a preexisting installation of R, RStudio, and Rtools
+
+### Method 3: Docker Deployment (Recommended for Publications)
+
+*[**STRONGLY RECOMMENDED** for publications, reproducibility, and archival purposes]*
+
+Docker ensures exact reproducibility by encapsulating R version, all packages, system libraries, and dependencies in a container that works identically across Windows, macOS, and Linux. Images can be archived alongside publications and run identically years later.
+
+#### Prerequisites
+
+- Docker Engine 20.10+ ([Docker Desktop](https://www.docker.com/products/docker-desktop/) for Windows/Mac)
+- 4GB+ RAM (8GB recommended)
+- 10GB+ free disk space
+- Verify installation: `docker --version && docker run hello-world`
+
+#### Quick Start
+
+**Option A: Docker Compose (Easiest)**
+```bash
+git clone https://github.com/MSDLLCpapers/miRQuest.git
+cd miRQuest
+docker-compose up -d          # Build and start (15-30 min first time)
+# Access at http://localhost:3838
+docker-compose down           # Stop
+```
+
+**Option B: Standard Docker**
+```bash
+git clone https://github.com/MSDLLCpapers/miRQuest.git
+cd miRQuest
+docker build -t mirquest:latest .                    # Build image (15-30 min)
+docker run -d -p 3838:3838 --name mirquest-app mirquest:latest  # Start
+# Access at http://localhost:3838
+docker logs -f mirquest-app                          # View logs
+docker stop mirquest-app                             # Stop
+docker start mirquest-app                            # Restart
+docker rm mirquest-app                               # Remove
+```
+
+**Build Process:** Base image download (2-5 min) → System dependencies (3-5 min) → R packages (10-20 min) → App files (1 min)
+
+#### Configuration
+
+**Port Configuration:**
+By default, the app runs on port 3838. To use a different port:
+```bash
+# Docker Compose: Edit docker-compose.yml
+ports:
+  - "8080:3838"  # Access at http://localhost:8080
+
+# Docker CLI:
+docker run -d -p 8080:3838 --name mirquest-app mirquest:latest
+```
+
+**Persistent Data Storage:**
+To save analysis outputs or uploads to your host machine:
+```bash
+# Docker Compose: Uncomment volumes in docker-compose.yml
+volumes:
+  - ./output:/app/output
+
+# Docker CLI:
+docker run -d -p 3838:3838 -v $(pwd)/output:/app/output mirquest:latest
+```
+
+**Development Mode:**
+For development with live code reloading:
+```bash
+docker run -d -p 3838:3838 -v $(pwd):/app mirquest:latest
+```
+
+#### Troubleshooting
+
+**Build Issues:**
+```bash
+# Memory issues: Increase Docker memory allocation (recommended: 4GB+)
+# Docker Desktop: Settings > Resources > Memory
+
+# Build fails: Clear cache and rebuild
+docker builder prune -a && docker build --no-cache -t mirquest:latest .
+
+# Network timeouts: Retry the build
+docker-compose build --no-cache
+
+# Timeout errors: Disable BuildKit
+DOCKER_BUILDKIT=0 docker build -t mirquest:latest .
+
+# Check build logs
+docker-compose build 2>&1 | tee build.log
+```
+
+**Runtime Issues:**
+```bash
+# Container starts but app doesn't load:
+docker logs mirquest-app  # Check logs
+lsof -i :3838  # Verify port not in use (macOS/Linux)
+netstat -ano | findstr :3838  # Windows
+
+# Port conflict: Use different port
+docker run -d -p 3839:3838 --name mirquest-app mirquest:latest
+
+# Out of memory errors: Increase Docker memory limit to at least 4GB
+
+# Biomart connection errors: App uses "useast" Ensembl mirror
+# Usually transient; refresh the app or restart the container
+```
+
+#### Archiving for Publications
+
+**Save Docker image for long-term archival:**
+```bash
+docker build -t mirquest:1.0.0 .
+docker save mirquest:1.0.0 | gzip > mirquest-v1.0.0.tar.gz  # ~1.5-2.5 GB
+sha256sum mirquest-v1.0.0.tar.gz > checksums.txt
+```
+
+**Load archived image to reproduce results:**
+```bash
+docker load < mirquest-v1.0.0.tar.gz
+docker run -d -p 3838:3838 --name mirquest-app mirquest:1.0.0
+```
+
+**Archive with publication:** Upload to [Zenodo](https://zenodo.org), [Figshare](https://figshare.com), or institutional repository along with:
+- This README.md
+- The Dockerfile
+- Git commit SHA/tag
+- Package version report (see Verifying Environment below)
+
+**Example Methods Section Citation:**
+> "Data analysis was performed using miRQuest v1.0 (GitHub: MSDLLCpapers/miRQuest, commit: [SHA]) in Docker (archived at Zenodo: [DOI]). The image contains R 4.4.2, Bioconductor 3.20, and exact package versions specified in the Dockerfile."
+
+#### Verifying Environment
+
+Generate a package version report for publication supplementary materials:
+
+```bash
+docker run -d -p 3838:3838 --name mirquest-app mirquest:latest
+docker exec mirquest-app Rscript -e "write.csv(installed.packages()[,c('Package','Version')], '/tmp/packages.csv')"
+docker cp mirquest-app:/tmp/packages.csv ./mirquest-package-versions.csv
+```
+
+**Expected versions:** R 4.4.2, Bioconductor 3.20, DESeq2 1.44.0, miRNAtap 1.38.0, clusterProfiler 4.12.0
+
+#### Advantages of Docker Deployment
+
+- ✅ **Complete isolation** - No conflicts with existing R installations
+- ✅ **Reproducibility** - Exact same environment every time
+- ✅ **Version control** - All package versions locked to R 4.4.2 and Bioconductor 3.20
+- ✅ **Cross-platform** - Works identically on Windows, macOS, and Linux
+- ✅ **Publication-ready** - Docker images can be archived with publications
+- ✅ **No R installation required** - Only Docker needed
+
+**Image Size:** The final Docker image is approximately 3-4 GB (R base ~700 MB, system libraries ~500 MB, R packages ~2-3 GB).
 
 ---
 

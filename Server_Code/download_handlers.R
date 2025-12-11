@@ -116,21 +116,21 @@ output$downloadChord <- downloadHandler(
   }
 )
 
-output$downloadNetwork <- downloadHandler(
-  filename = function() {
-    paste("Network_Plot_", Sys.Date(), ".png", sep="")
-  },
-  content = function(file) {
-    png(file, width = 800, height = 600)
-    plot_func <- network_plot_reactive()
-    if (is.function(plot_func)) {
-      print(plot_func())
-    } else {
-      print(plot_func)
-    }
-    dev.off()
-  }
-)
+# output$downloadNetwork <- downloadHandler(
+#   filename = function() {
+#     paste("Network_Plot_", Sys.Date(), ".png", sep="")
+#   },
+#   content = function(file) {
+#     png(file, width = 800, height = 600)
+#     plot_func <- network_plot_reactive()
+#     if (is.function(plot_func)) {
+#       print(plot_func())
+#     } else {
+#       print(plot_func)
+#     }
+#     dev.off()
+#   }
+# )
 
 # Module 7: Correlation Analysis Downloads
 output$downloadCorrelationPlot <- downloadHandler(
@@ -140,6 +140,22 @@ output$downloadCorrelationPlot <- downloadHandler(
   content = function(file) {
     png(file, width = 800, height = 600)
     plot_func <- correlation_plot_reactive()
+    if (is.function(plot_func)) {
+      print(plot_func())
+    } else {
+      print(plot_func)
+    }
+    dev.off()
+  }
+)
+
+output$corr_downloadChord <- downloadHandler(
+  filename = function() {
+    paste("Chord_Plot_", Sys.Date(), ".png", sep="")
+  },
+  content = function(file) {
+    png(file, width = 800, height = 600)
+    plot_func <- chord_plot_reactive()
     if (is.function(plot_func)) {
       print(plot_func())
     } else {

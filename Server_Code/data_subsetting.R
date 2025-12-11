@@ -30,7 +30,7 @@ observeEvent(input$subsetDataButton, {
   subset_data_reactive(subsets_data)
   
   output$subsetDataTable <- renderTable({
-    subsets_data
+    head(subsets_data)
   })
 })
 

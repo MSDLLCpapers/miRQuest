@@ -100,6 +100,55 @@ server <- function(input, output, session) {
       return(NULL)
     }
   })
+ 
+  
+  org_mirtarbase <- reactive({
+    # Validate species selection
+    validate(
+      need(input$hsa || input$mmu, "Please select at least one species."),
+      need(!(input$hsa && input$mmu), "Please select only one species at a time.")
+    )
+    
+    # Determine species
+    species <- if (isTRUE(input$hsa)) "hsa" else if (isTRUE(input$mmu)) "mmu" else NULL
+    req(species)
+    
+    # If validated targets are requested, require user upload
+    if (isTRUE(input$validated)) {
+      if (species == "hsa") {
+        validate(need(!is.null(input$file_hsa), "Please upload hsa_MTI.csv to retrieve validated targets."))
+        path <- input$file_hsa$datapath
+      } else {
+        validate(need(!is.null(input$file_mmu), "Please upload mmu_MTI.csv to retrieve validated targets."))
+        path <- input$file_mmu$datapath
+      }
+      
+      # Future code: handle colnames nicely and allow more species
+      # df <- readr::read_csv(here(
+      #   file = path),
+      #   col_types = readr::cols(.default = readr::col_character())
+      # )
+      
+      df <-read.csv(here(path))
+      
+    } else {
+      # Not validated: choose your behavior.
+      # Option A: return NULL (no data until validated is chosen)
+       return(NULL)
+      
+    }
+    
+    # Apply species-specific filtering/renaming
+    df <- df %>%
+      dplyr::filter(.data$Species..Target.Gene. == species) %>%
+      dplyr::rename(entrezgene_id = .data$Target.Gene..Entrez.ID.) %>%
+      dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
+    
+    df
+  })
+  
+  
+  
   
   # Module 1: Exploratory Visualization
   boxplot_reactive <- reactiveVal()
@@ -136,7 +185,8 @@ server <- function(input, output, session) {
   miRNA_mapped_pathways <- reactiveVal()
   
   # Module 5: Predict target genes for a single DE miRNA
-  Single_miRNA_PredictedGenes_reactive <- reactiveVal()
+  displayed_gene_results <- reactiveVal()
+  #Single_miRNA_PredictedGenes_reactive <- reactiveVal()
   Single_miRNA_Pathways_reactive <- reactiveVal()
   
   # Module 6: Do Differential Gene Expression Analysis with DESEQ2
@@ -147,6 +197,13 @@ server <- function(input, output, session) {
   # Module 7: miRNA-mRNA Correlation Analysis
   neg_cor_reactive <- reactiveVal()
   supported_neg_cor_reactive <- reactiveVal()
+  
+  vis_nodes_reactive <- reactiveVal()
+  vis_edges_reactive <- reactiveVal()
+ 
+  corr_miRNA_Pathways_reactive <- reactiveVal()
+  corr_miRNA_mapped_pathways_reactive <- reactiveVal()
+  corr_chord_plot_reactive <- reactiveVal() 
   
   # Species validation observer
   observeEvent(input$submit, {

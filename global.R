@@ -6,7 +6,20 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 
 options(repos = BiocManager::repositories())
 
+# IMPORTANT: renv::restore() disabled for Docker deployments
+# Packages are installed during Docker image build, not at runtime
+# If running locally (non-Docker), uncomment the line below:
 # renv::restore()
+
+# Docker runtime diagnostics (only runs in containerized environment)
+if (file.exists("/.dockerenv")) {
+  cat("\n=== miRQuest Docker Runtime ===\n")
+  cat("Working directory:", getwd(), "\n")
+  cat("Library paths:", paste(.libPaths(), collapse = "\n  "), "\n")
+  cat("R version:", R.version.string, "\n")
+  cat("Container startup time:", Sys.time(), "\n")
+  cat("================================\n\n")
+}
 
 library(renv)
 library(shiny)
@@ -36,12 +49,18 @@ library(reactome.db)
 library(ReactomePA)
 library(bslib)
 library(here)
+library(DT)
+library(plotly)
+library(visNetwork)
 
 if (!requireNamespace("shinyjs", quietly = TRUE)) {
     install.packages("shinyjs")
 }
 
 library(shinyjs)
+
+# Increase max upload size
+options(shiny.maxRequestSize = 500 * 1024^2)
 
 # Source all R scripts in the scripts directory
 scripts_to_source <- 

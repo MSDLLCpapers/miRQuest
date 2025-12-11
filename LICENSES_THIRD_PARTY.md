@@ -16,6 +16,10 @@ Third party R libraries listed by License type
   * ggraph - https://cran.r-project.org/web/packages/ggraph/
   * bslib - https://cran.r-project.org/web/packages/bslib/
   * here - https://cran.r-project.org/web/packages/here/
+  * visNetwork - https://cran.csail.mit.edu/web/packages/visNetwork/index.html
+  * DT - https://cran.rstudio.com/web/packages/DT/
+  * plotly - https://cran.r-project.org/web/packages/plotly/
+  * shinyjs - https://cran.r-project.org/web/packages/shinyjs/
 
 GPL-2 License (http://opensource.org/licenses/GPL-2.0)
   * shiny.exe - https://cran.r-project.org/web/packages/shiny.exe/index.html
@@ -24,7 +28,6 @@ GPL-2 License (http://opensource.org/licenses/GPL-2.0)
   * edgeR - https://bioconductor.org/packages/release/bioc/html/edgeR.html
   * pheatmap - https://cran.r-project.org/web/packages/pheatmap/
   * igraph - https://cran.r-project.org/web/packages/igraph/
-  * 
 
 GPL-3 License (http://opensource.org/licenses/GPL-3.0)
   * shiny - https://cran.r-project.org/web/packages/shiny/

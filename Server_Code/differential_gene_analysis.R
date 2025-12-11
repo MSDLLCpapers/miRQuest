@@ -1,9 +1,14 @@
-## Lines 53-81 have been modified from https://rdrr.io/bioc/anamiR/src/R/differExp_discrete.R (AnamiR, GPL-2 license)
+## Lines 81-127 have been modified from https://rdrr.io/bioc/anamiR/src/R/differExp_discrete.R (AnamiR, GPL-2 license)
 ## Therefore, if you use this software, please also cite: Wang TT, Lee CY, Lai LC, Tsai MH, Lu TP, Chuang EY. anamiR: integrated analysis of MicroRNA and gene expression profiling. BMC Bioinformatics. 2019 May 14;20(1):239. doi: 10.1186/s12859-019-2870-x. PMID: 31088348; PMCID: PMC6518761.
 # Module 6: Do Differential Gene Expression Analysis with DESEQ2
 
 observeEvent(input$mrna_runDESeq, {
-  req(input$designColumn)
+  req(input$designColumns, input$voi)  # CHANGED: require multi-covariates and VOI
+  
+  ################################# DEV CODE PLEASE KEEP #####################################
+  #mRNAcountData <- read.csv(here("data/COREAD_Downsampled_Tumor_vs_Normal_mRNA.csv"), row.names=1)
+  #metadataData <- read.csv(here("data/COREAD_Tumor_vs_Normal_Metadata.csv"))
+  ############################################################################################
   
   notification_id <- showNotification("Computing, please wait...", type = "message", duration = NULL)
   
@@ -12,7 +17,7 @@ observeEvent(input$mrna_runDESeq, {
     mRNAcountData <- mrna_wideData()
     mRNAcountData <- mRNAcountData %>% column_to_rownames("X")
   } else if (!is.null(input$mrna_countTable)) {
-    mRNAcountData <- read.csv(input$mrna_countTable$datapath, header = TRUE)
+    mRNAcountData <- read.csv(input$mrna_countTable$datapath, header = TRUE,row.names=1)
     mRNAcountData <- mRNAcountData %>% column_to_rownames("X")
   } else {
     showNotification("Please upload mRNA count data or use pre-loaded demo data", type = "error")
@@ -29,13 +34,42 @@ observeEvent(input$mrna_runDESeq, {
   
   all(metadataData$SampleID==colnames(mRNAcountData))
   
-  designFormula <- as.formula(paste("~", input$designColumn))
+  if (!all(metadataData$SampleID == names(mRNAcountData))) {
+    showNotification("Sample IDs do not match between metadata and count data", type = "error")
+    removeNotification(notification_id)  # ADDED
+    return()
+  }
+  
+  # ADDED: coerce VOI to factor and set reference if applicable
+  if (input$voi %in% names(metadataData)) {
+    metadataData[[input$voi]] <- factor(metadataData[[input$voi]])
+    if (!is.null(input$voiRef) && input$voiRef %in% levels(metadataData[[input$voi]])) {
+      metadataData[[input$voi]] <- stats::relevel(metadataData[[input$voi]], ref = input$voiRef)
+    }
+  }
+  
+  # ADDED: coerce other selected design covariates (categoricals as factors, numeric left as-is)
+  other_covs <- setdiff(input$designColumns, input$voi)
+  for (nm in other_covs) {
+    if (is.character(metadataData[[nm]])) {
+      metadataData[[nm]] <- factor(metadataData[[nm]])
+    }
+  }
+  
+  # CHANGED: build multi-covariate design formula (main effects only)
+  designFormula <- as.formula(paste("~", paste(input$designColumns, collapse = " + ")))  # CHANGED
+  
   dds_mRNA <- DESeqDataSetFromMatrix(countData = mRNAcountData, 
                                      colData = metadataData, 
                                      design = designFormula)
   
+  print("dds object successfully built")
   dds_mRNA <- DESeq(dds_mRNA)
-  res_mRNA <- results(dds_mRNA)
+  
+  # CHANGED: compute results for VOI using contrast (first non-reference level vs reference)
+
+  res_mRNA <- DESeq2::results(dds_mRNA, contrast = c(input$voi, setdiff(levels(metadataData[[input$voi]]), input$voiRef)[1], input$voiRef))
+  print("dds results successfully built")
   
   res_mRNA <- as.data.frame(res_mRNA)
   res_significant_mRNA <- res_mRNA %>% 
@@ -43,33 +77,40 @@ observeEvent(input$mrna_runDESeq, {
     rownames_to_column("mRNA") %>%
     arrange(padj)
   
-  unique_groups <- unique(metadataData[[input$designColumn]])
+  unique_groups <- unique(metadataData[[input$voi]])
   
   if (length(unique_groups) < 2) {
     showNotification("Not enough unique groups in the selected design column to compare.", type = "error")
     return()
   }
   
-  gp1 <- which(metadataData[[input$designColumn]] == unique_groups[1])
-  gp2 <- which(metadataData[[input$designColumn]] == unique_groups[2])
+  gp1 <- which(metadataData[[input$voi]] == unique_groups[1])
+  gp2 <- which(metadataData[[input$voi]] == unique_groups[2])
   
   p_value <- res_mRNA[["pvalue"]]
   p_adjust <- res_mRNA[["padj"]]
   FC <- res_mRNA[["log2FoldChange"]]
   
   idx <- which(p_adjust < input$padj_filter)
-  DE_data <- mRNAcountData[idx, ]
+  
+  print("about to retrive normalized counts")
+  norm_cts <- counts(dds_mRNA, normalized = TRUE) %>% as.data.frame()
+  print(length(idx))
+  print(nrow(norm_cts))
+  
+  #all(row.names(norm_cts) ==row.names(res_mRNA))
+  DE_data <- norm_cts[idx, ]
   
   mean_gp1 <- if (length(gp1) == 1) {
-    mRNAcountData[, gp1]
+    norm_cts[, gp1]
   } else {
-    apply(mRNAcountData[, gp1], 1, mean)
+    apply(norm_cts[, gp1], 1, mean)
   }
   
   mean_gp2 <- if (length(gp2) == 1) {
-    mRNAcountData[, gp2]
+    norm_cts[, gp2]
   } else {
-    apply(mRNAcountData[, gp2], 1, mean)
+    apply(norm_cts[, gp2], 1, mean)
   }
   
   DE_data <- cbind(DE_data, FC[idx], p_value[idx], p_adjust[idx], mean_gp1[idx], mean_gp2[idx])
@@ -78,7 +119,7 @@ observeEvent(input$mrna_runDESeq, {
   colnames(DE_data)[(len_col - 4):len_col] <- c("log_ratio", "P-Value", "P-adjust", "mean_case", "mean_control")
   
   FC_rows <- abs(DE_data[, len_col - 4])
-  DE_data <- DE_data[FC_rows > 0.5, ]
+  DE_data <- DE_data[FC_rows >= 0.5, ]
   
   gene_names <- row.names(DE_data)
   mrna_data <- as.matrix(sapply(DE_data, as.numeric))

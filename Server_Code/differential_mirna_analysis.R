@@ -1,15 +1,59 @@
-## Lines 102-131 have been adapted from https://rdrr.io/bioc/anamiR/src/R/differExp_discrete.R (AnamiR, GPL-2 license)
+## Lines 250-286 have been adapted from https://rdrr.io/bioc/anamiR/src/R/differExp_discrete.R (AnamiR, GPL-2 license)
 ## Therefore, if you use this software, please also cite: Wang TT, Lee CY, Lai LC, Tsai MH, Lu TP, Chuang EY. anamiR: integrated analysis of MicroRNA and gene expression profiling. BMC Bioinformatics. 2019 May 14;20(1):239. doi: 10.1186/s12859-019-2870-x. PMID: 31088348; PMCID: PMC6518761.
 # Module 3: Do Differential miRNA Expression Analysis with DESEQ2
+
+
+# --- Populate UI choices based on metadata ---
+
+# ADDED: update design covariate choices when metadata is ready
+observeEvent(metadata(), {
+  req(metadata())
+  cols <- setdiff(names(metadata()), "SampleID")
+  updateSelectizeInput(session, "designColumns", choices = cols, server = TRUE)
+})
+
+# ADDED: keep VOI in sync with selected design covariates
+observeEvent(input$designColumns, {
+  updateSelectInput(session, "voi", choices = input$designColumns)
+})
+
+# ADDED: show reference level selector if VOI is a factor
+output$voiRefLevelUI <- renderUI({
+  req(metadata(), input$voi)
+  md <- metadata()
+  if (input$voi %in% names(md)) {
+    vals <- md[[input$voi]]
+    lv <- levels(factor(vals))
+    if (length(lv) > 0) {
+      selectInput("voiRef", "Reference level for VOI:", choices = lv, selected = lv[1])
+    } else {
+      # Non-factor (numeric/character without clear levels): no reference level UI
+      NULL
+    }
+  } else {
+    NULL
+  }
+})
+
+
+# Helper: check if the design matrix is full rank
+is_full_rank <- function(colData_df, design_formula) {
+  mm <- tryCatch(
+    stats::model.matrix(design_formula, data = as.data.frame(colData_df)),
+    error = function(e) NULL
+  )
+  if (is.null(mm)) return(FALSE)
+  rk <- tryCatch(qr(mm)$rank, error = function(e) NA)
+  if (is.na(rk)) return(FALSE)
+  rk == ncol(mm)
+}
 
 # Reactive values for storing heatmap and volcano plot functions
 significant_heatmap_reactive <- reactiveVal()
 volcano_plot_reactive <- reactiveVal()
 
 observeEvent(input$runDESeq, {
-  req(wideData(), 
-      metadata(), 
-      input$designColumn)
+  req(wideData(), metadata(),input$designColumns, input$voi)
   
   notification_id <- showNotification("Computing, please wait...", type = "message", duration = NULL)
   
@@ -25,26 +69,118 @@ observeEvent(input$runDESeq, {
   
   if (!all(metadataData$SampleID == names(countData))) {
     showNotification("Sample IDs do not match between metadata and count data", type = "error")
+    removeNotification(notification_id)  # ADDED
     return()
   }
   
-  designFormula <- as.formula(paste("~", input$designColumn))
+  # ADDED: coerce VOI to factor and set reference if applicable
+  if (input$voi %in% names(metadataData)) {
+    metadataData[[input$voi]] <- factor(metadataData[[input$voi]])
+    if (!is.null(input$voiRef) && input$voiRef %in% levels(metadataData[[input$voi]])) {
+      metadataData[[input$voi]] <- stats::relevel(metadataData[[input$voi]], ref = input$voiRef)
+    }
+  }
   
-  dds <- DESeqDataSetFromMatrix(countData = countData, 
-                                colData = metadataData, 
-                                design = designFormula)
+  # ADDED: coerce other selected design covariates (categoricals as factors, numeric left as-is)
+  other_covs <- setdiff(input$designColumns, input$voi)
+  for (nm in other_covs) {
+    if (is.character(metadataData[[nm]])) {
+      metadataData[[nm]] <- factor(metadataData[[nm]])
+    }
+  }
   
-  dds <- DESeq(dds)
+  
+  # CHANGED: compute and display sample sizes per covariate before modeling
+  # 1) Variable of interest (VOI) group counts
+  voi_counts <- table(metadataData[[input$voi]])  # CHANGED
+  message("Sample sizes for variable of interest (", input$voi, "):")  # CHANGED
+  print(voi_counts)  # CHANGED
+  
+  # Optional: show in UI
+  output$voi_sample_sizes <- renderText({  # CHANGED: add a textOutput("voi_sample_sizes") in UI
+    paste0("VOI sample sizes (", input$voi, "): ",
+           paste(names(voi_counts), voi_counts, sep = "=", collapse = "; "))
+  })
+  
+  # 2) Other covariates (each factor’s level counts; numeric shown as N and summary)
+  cov_size_summaries <- list()  # CHANGED
+  for (nm in other_covs) {  # CHANGED
+    x <- metadataData[[nm]]
+    if (is.factor(x)) {
+      cov_size_summaries[[nm]] <- paste(names(table(x)), as.integer(table(x)), sep = "=", collapse = "; ")
+      message("Sample sizes for covariate ", nm, ": ", cov_size_summaries[[nm]])  # CHANGED
+    } else {
+      cov_size_summaries[[nm]] <- paste0("N=", length(x),
+                                         ", mean=", round(mean(as.numeric(x), na.rm = TRUE), 3),
+                                         ", sd=", round(sd(as.numeric(x), na.rm = TRUE), 3))
+      message("Summary for numeric covariate ", nm, ": ", cov_size_summaries[[nm]])  # CHANGED
+    }
+  }
+  
+  # Optional: show covariate summaries in UI
+  output$covariate_sample_sizes <- renderUI({  # CHANGED: add a uiOutput("covariate_sample_sizes") in UI
+    if (length(cov_size_summaries) == 0) return(NULL)
+    tags$div(
+      tags$strong("Covariate sample sizes:"),
+      tags$ul(
+        lapply(names(cov_size_summaries), function(nm) {
+          tags$li(paste(nm, "-", cov_size_summaries[[nm]]))
+        })
+      )
+    )
+  })
+  
+  # CHANGED: build simple multi-covariate design formula (main effects only)
+  # designFormula <- as.formula(paste("~", input$designColumn))
+  designFormula <- as.formula(paste("~", paste(input$designColumns, collapse = " + ")))  # CHANGED
+  
+  dds <- tryCatch(
+    DESeq2::DESeqDataSetFromMatrix(countData = countData,
+                                   colData = metadataData,
+                                   design = designFormula),
+    error = function(e) {
+      removeNotification(notification_id)
+      showNotification(
+        paste0("Could not create DESeqDataSet: ", e$message,
+               " Tip: remove redundant covariates or levels."),
+        type = "error", duration = NULL
+      )
+      return(NULL)
+    }
+  )
+  req(dds)  # abort if NULL
+  
+  dds <- tryCatch(
+    DESeq2::DESeq(dds),
+    error = function(e) {
+      # Detect the full rank error specifically
+      msg <- e$message
+      if (grepl("not full rank|full rank|linear combinations", msg, ignore.case = TRUE)) {
+        showNotification(
+          "Model is not full rank. Remove redundant covariates or collapse levels (e.g., empty or single-sample levels).",
+          type = "error", duration = NULL
+        )
+      } else {
+        removeNotification(notification_id)
+        showNotification(paste("DESeq error:", msg), type = "error")
+        
+      }
+      return(NULL)
+    }
+  )
+  req(dds)
+  
   DESEQ_obj(dds)
   
-  norm_cts <- vst(dds, blind = TRUE, sum( rowMeans( counts(dds, normalized=TRUE)) > 5 )) %>% assay()
+  norm_cts <- vst(dds, blind = TRUE, nsub = sum( rowMeans( counts(dds, normalized=TRUE)) > 5 )) %>% assay()
   norm_cts_reactive(norm_cts)
-  heatmap_annotation <- as.data.frame(colData(dds)) %>%
-    dplyr::select(c(input$designColumn))
-  heatmap_annotation_reactive(heatmap_annotation)
-  print(rownames(norm_cts))
   
-  res <- results(dds)
+  heatmap_annotation <- as.data.frame(colData(dds)) %>%
+    dplyr::select(c(input$voi))
+  heatmap_annotation_reactive(heatmap_annotation)
+  #print(rownames(norm_cts))
+  
+  res <- DESeq2::results(dds, contrast = c(input$voi, setdiff(levels(metadataData[[input$voi]]), input$voiRef)[1], input$voiRef))  # CHANGED
   
   res <- as.data.frame(res)
   DE_miRNA_results_reactive(res)
@@ -56,25 +192,40 @@ observeEvent(input$runDESeq, {
   
   res_significant(res_significant_data)
   
-  output$resSignificantTable <- renderTable({
-    req(res_significant())  
-    if (!is.null(res_significant())) {
-      filtered_data <- res_significant() %>%
-        filter(padj < input$DEM_padj_filter)  
-      
-      output$dem_count <- renderText({
-        paste("Number of DE MiRNAs meeting the threshold criteria:", nrow(filtered_data))
-      })
-      
-      if (nrow(filtered_data) == 0) {
-        output$NoDEGmessage <- renderText("No DE MiRNAs meet the filtering criteria.")
-        return()
-      } else {
-        return(head(as.data.frame(filtered_data)))
-      }
+  output$resSignificantTable <- DT::renderDataTable({
+    req(res_significant())
+    
+    filtered_data <- res_significant() %>%
+      dplyr::filter(padj < input$DEM_padj_filter)
+    
+    # Update count text
+    output$dem_count <- renderText({
+      paste(
+        "Number of DE MiRNAs meeting the threshold criteria:",
+        nrow(filtered_data)
+      )
+    })
+    
+    # Handle empty result
+    if (nrow(filtered_data) == 0) {
+      output$NoDEGmessage <- renderText("No DE MiRNAs meet the filtering criteria.")
+      DT::datatable(
+        data.frame(Message = "No significant miRNA to display"),
+        rownames = FALSE,
+        options = list(scrollX = TRUE, pageLength = 5)
+      )
+      return(data.frame())
     } else {
-      output$NoDEGmessage <- renderText("No DE MiRNAs were identified")
-      return()
+      output$NoDEGmessage <- renderText("")  # clear any prior message
+      DT::datatable(
+        filtered_data,
+        rownames = FALSE,
+        options = list(
+          pageLength = 10,
+          lengthMenu = c(10, 25, 50, 100),
+          autoWidth = TRUE
+        )
+      )
     }
   })
   
@@ -92,15 +243,15 @@ observeEvent(input$runDESeq, {
   
   ### Prepare the counts for negative correlation module ---
   
-  unique_groups <- unique(metadataData[[input$designColumn]])
+  unique_groups <- unique(metadataData[[input$voi]])
   
   if (length(unique_groups) < 2) {
     showNotification("Not enough unique groups in the selected design column to compare.", type = "error")
     return()
   }
   
-  gp1 <- which(metadataData[[input$designColumn]] == unique_groups[1])
-  gp2 <- which(metadataData[[input$designColumn]] == unique_groups[2])
+  gp1 <- which(metadataData[[input$voi]] == unique_groups[1])
+  gp2 <- which(metadataData[[input$voi]] == unique_groups[2])
   
   p_value <- res[["pvalue"]]
   p_adjust <- res[["padj"]]
@@ -108,18 +259,20 @@ observeEvent(input$runDESeq, {
   
   idx <- which(p_adjust < input$DEM_padj_filter)
   
-  DE_data <- countData[idx, ]
+  norm_cts <- counts(dds, normalized = TRUE) %>% as.data.frame
+  #DE_data <- countData[idx, ]
+  DE_data <- norm_cts[idx, ]
   
   mean_gp1 <- if (length(gp1) == 1) {
-    countData[, gp1]
+    norm_cts[, gp1]
   } else {
-    apply(countData[, gp1], 1, mean)
+    apply(norm_cts[, gp1], 1, mean)
   }
   
   mean_gp2 <- if (length(gp2) == 1) {
-    countData[, gp2]
+    norm_cts[, gp2]
   } else {
-    apply(countData[, gp2], 1, mean)
+    apply(norm_cts[, gp2], 1, mean)
   }
   
   DE_data <- cbind(DE_data, FC[idx], p_value[idx], p_adjust[idx], mean_gp1[idx], mean_gp2[idx])
@@ -128,7 +281,7 @@ observeEvent(input$runDESeq, {
   colnames(DE_data)[(len_col - 4):len_col] <- c("log_ratio", "P-Value", "P-adjust", "mean_case", "mean_control")
   
   FC_rows <- abs(DE_data[, len_col - 4])
-  DE_data <- DE_data[FC_rows > 0.5, ]
+  DE_data <- DE_data[FC_rows >= 0.5, ]
   
   gene_names <- row.names(DE_data)
   mirna_data <- as.data.frame(DE_data)
@@ -157,7 +310,7 @@ observeEvent(input$runDESeq, {
   updateSelectInput(session, "selectedMiRNA", choices = res_significant()$miRNA)
   updateSelectInput(session, "DEMiRNA", choices = res_significant()$miRNA)
   
-  grouping_variable <- input$designColumn
+  grouping_variable <- input$voi
   levels_group <- levels(as.factor(metadataData[[grouping_variable]]))
   
   if (length(levels_group) < 2) {
@@ -191,93 +344,233 @@ observeEvent(input$runDESeq, {
       dev.off()
     }
   )
+  
+  
+  # Data processing msg:
+  output$boxplotMessage <- renderUI({
+    req(DESEQ_obj(), metadata(), input$groupBy_Boxplot, input$selectedMiRNA)
+    
+    dds <- DESEQ_obj()
+    metadataData <- metadata()
+    grouping_variable <- input$groupBy_Boxplot
+    selected_miRNA <- input$selectedMiRNA
+    
+    # Get per-sample values shown in the boxplot (same as plotCounts with returnData=TRUE)
+    df <- DESeq2::plotCounts(
+      dds = dds,
+      gene = selected_miRNA,
+      intgroup = grouping_variable,
+      returnData = TRUE
+    )
+    
+    # Group sample sizes for the selected grouping variable
+    group_counts <- df %>%
+      dplyr::count(!!rlang::sym(grouping_variable), name = "n")
+    
+    group_text <- paste(
+      paste0(group_counts[[grouping_variable]], " (n = ", group_counts$n, ")"),
+      collapse = " | "
+    )
+    
+    # Compose an easy-to-understand description
+    transform_text <- HTML(paste0(
+      "<b> Data processing:</b><br/>",
+      "1) Counts are first adjusted by DESEQ2 size factors to correct for sequencing depth and sample composition.<br/>",
+      "2) The distribution of normalized counts for <code>", selected_miRNA, "</code> across samples are shown.<br/>",
+      "- For statistical significance and effect size, please use the DESeq2 differential expression results.<br/>"
+      
+    ))
+    
+    HTML(paste0(
+      "<div>",
+      "<b>Selected miRNA:</b> ", selected_miRNA, "<br/>",
+      "<b>Group sample sizes:</b> ", group_text, "<br/><br/>",
+      transform_text, "<br/>",
+      "</div>"
+    ))
+  })
+  
+})
+
+
+
+# Populate the selectable miRNA list from normalized counts (safer for heatmap rows)
+observeEvent(norm_cts_reactive(), {
+  req(norm_cts_reactive())
+  norm_cts <- norm_cts_reactive()
+  updateSelectizeInput(
+    session,
+    inputId = "heatmap_select_rows",
+    choices = rownames(norm_cts),
+    server = TRUE
+  )
 })
 
 observeEvent(input$significant_heatmap_button, {
-  req(res_significant(), norm_cts_reactive())
+  req(norm_cts_reactive(), res_significant(),heatmap_annotation_reactive())
   
   res_significant_data <- res_significant()
   norm_cts <- norm_cts_reactive()
   heatmap_annotation <- heatmap_annotation_reactive()
   
-  # Handle both DESeq2 (log2FoldChange) and limma (logFC) column names
-  if ("log2FoldChange" %in% colnames(res_significant_data)) {
-    select_significant <- res_significant_data %>% 
-      mutate(abs_log2FoldChange = abs(log2FoldChange)) %>%
-      filter(abs_log2FoldChange >= input$DEM_log2FoldChange_filter) %>% 
-      pull(miRNA)
-  } else if ("logFC" %in% colnames(res_significant_data)) {
-    select_significant <- res_significant_data %>% 
-      mutate(abs_log2FoldChange = abs(logFC)) %>%
-      filter(abs_log2FoldChange >= input$DEM_log2FoldChange_filter) %>% 
-      pull(miRNA)
+  # If user specified rows, use them; otherwise fall back to "significant" logic
+  user_selected <- input$heatmap_select_rows
+  valid_user_selected <- intersect(user_selected %||% character(0), rownames(norm_cts))
+  
+  # Warn about any invalid entries
+  if (!is.null(user_selected) && length(setdiff(user_selected, valid_user_selected)) > 0) {
+    output$heatmap_row_warning <- renderText(
+      paste("Some miRNAs not found in normalized counts:",
+            paste(setdiff(user_selected, valid_user_selected), collapse = ", "))
+    )
   } else {
-    # If neither column exists, show all significant miRNAs
-    select_significant <- res_significant_data$miRNA
+    output$heatmap_row_warning <- renderText("")
   }
   
-  print(intersect(rownames(norm_cts),select_significant))
+  # Determine which rows to plot
+  if (length(valid_user_selected) > 0) {
+    selected_present <- valid_user_selected
+  } else {
+    # Fall back to significant-based selection when no user override provided
+    if (is.null(res_significant_data) || nrow(res_significant_data) == 0) {
+      output$significant_miRNA_heatmap <- renderPlot({
+        plot.new(); text(0.5, 0.5, "no significant features to plot")
+      })
+      significant_heatmap_reactive(NULL)
+      return()
+    }
+    
+    if ("log2FoldChange" %in% colnames(res_significant_data)) {
+      select_significant <- res_significant_data %>%
+        dplyr::mutate(abs_log2FoldChange = abs(log2FoldChange)) %>%
+        dplyr::filter(abs_log2FoldChange >= input$DEM_log2FoldChange_filter) %>%
+        dplyr::pull(miRNA)
+    } else if ("logFC" %in% colnames(res_significant_data)) {
+      select_significant <- res_significant_data %>%
+        dplyr::mutate(abs_log2FoldChange = abs(logFC)) %>%
+        dplyr::filter(abs_log2FoldChange >= input$DEM_log2FoldChange_filter) %>%
+        dplyr::pull(miRNA)
+    } else {
+      select_significant <- res_significant_data$miRNA
+    }
+    
+    if (length(select_significant) == 0) {
+      output$significant_miRNA_heatmap <- renderPlot({
+        plot.new(); text(0.5, 0.5, "no significant features to plot")
+      })
+      significant_heatmap_reactive(NULL)
+      return()
+    }
+    
+    selected_present <- intersect(rownames(norm_cts), select_significant)
+  }
   
-  subset_norm_cts <- norm_cts[rownames(norm_cts) %in% select_significant, ]
+  # Guard for empty selection
+  if (length(selected_present) == 0) {
+    output$significant_miRNA_heatmap <- renderPlot({
+      plot.new(); text(0.5, 0.5, "no matching miRNAs to plot")
+    })
+    significant_heatmap_reactive(NULL)
+    return()
+  }
   
-  # Store heatmap function for download
-  heatmap_significant <- pheatmap(subset_norm_cts, 
-                                  annotation_col = heatmap_annotation,
-                                  scale= "row",
-                                  cluster_rows=TRUE, 
-                                  show_rownames=input$significant_heatmap_showRowLabels,
-                                  show_colnames = input$significant_heatmap_showColLabels,
-                                  cluster_cols=TRUE)
+  subset_norm_cts <- norm_cts[selected_present, , drop = FALSE]
   
-  output$significant_miRNA_heatmap <- renderPlot({
-    heatmap_significant
-  })
+  do_cluster_rows <- nrow(subset_norm_cts) >= 2
   
-  # Store heatmap in reactive for download handler
+  heatmap_significant <- pheatmap::pheatmap(
+    subset_norm_cts,
+    annotation_col = heatmap_annotation,
+    scale = "row",
+    cluster_rows = do_cluster_rows,
+    show_rownames = input$significant_heatmap_showRowLabels,
+    show_colnames = input$significant_heatmap_showColLabels,
+    cluster_cols = TRUE
+  )
+  
+  output$significant_miRNA_heatmap <- renderPlot({ heatmap_significant })
   significant_heatmap_reactive(heatmap_significant)
 })
 
+
+# After DE_miRNA_results_reactive() becomes available, populate label choices
+observeEvent(DE_miRNA_results_reactive(), {
+  req(DE_miRNA_results_reactive())
+  res <- DE_miRNA_results_reactive()
+  updateSelectizeInput(
+    session,
+    inputId = "volcano_select_labels",
+    choices = rownames(res),
+    server = TRUE
+  )
+})
+
 observeEvent(input$Volcano_Plot_Button, {  
+  req(DE_miRNA_results_reactive())
+
   res <- DE_miRNA_results_reactive()
   
-  # Create volcano plot
+  # Validate user selections against available rownames
+  selected_labels <- input$volcano_select_labels
+  valid_labels <- intersect(selected_labels %||% character(0), rownames(res))
+  
+  # Warn if any entered labels aren't found
+  if (!is.null(selected_labels) && length(setdiff(selected_labels, valid_labels)) > 0) {
+    output$volcano_label_warning <- renderText(
+      paste("Some labels were not found in results:",
+            paste(setdiff(selected_labels, valid_labels), collapse = ", "))
+    )
+  } else {
+    output$volcano_label_warning <- renderText("")
+  }
+  
+  # Toggle: NULL for all labels, vector for only selected labels
+  select_lab_arg <- if (length(valid_labels) == 0) NULL else valid_labels
+  
   output$volcanoPlot <- renderPlot({
-    EnhancedVolcano(res,
-                    lab = rownames(res),
-                    labSize = input$volcano_plot_label_size,
-                    x = 'log2FoldChange',
-                    y = 'padj',
-                    ylab = bquote(~-Log[10]~ '(p-adjusted)'),
-                    pCutoff = input$DEM_padj_filter,
-                    title = NULL,
-                    subtitle = NULL,
-                    FCcutoff = input$DEM_log2FoldChange_filter,
-                    max.overlaps = Inf) +
+    EnhancedVolcano(
+      res,
+      lab = rownames(res),
+      x = "log2FoldChange",
+      y = "padj",
+      ylab = bquote(~-Log[10]~ "(p-adjusted)"),
+      pCutoff = input$DEM_padj_filter,
+      FCcutoff = input$DEM_log2FoldChange_filter,
+      labSize = input$volcano_plot_label_size,
+      selectLab = select_lab_arg,   # core logic
+      max.overlaps = Inf,
+    ) +
       theme_cowplot(12) +
-      theme(legend.position = "top",
-            plot.subtitle = element_text(hjust = 0.5),  
-            legend.justification = "center") +
-      theme(plot.title = element_text(hjust = 0.5))
+      theme(
+        legend.position = "top",
+        legend.justification = "center",
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title = element_text(hjust = 0.5)
+      )
   })
   
-  # Store volcano plot in reactive for download handler
+  # Keep the stored plot in sync (for export)
   volcano_plot_reactive(function() {
-    EnhancedVolcano(res,
-                    lab = rownames(res),
-                    labSize = input$volcano_plot_label_size,
-                    x = 'log2FoldChange',
-                    y = 'padj',
-                    ylab = bquote(~-Log[10]~ '(p-adjusted)'),
-                    pCutoff = input$DEM_padj_filter,
-                    title = NULL,
-                    subtitle = NULL,
-                    FCcutoff = input$DEM_log2FoldChange_filter,
-                    max.overlaps = Inf) +
+    EnhancedVolcano(
+      res,
+      lab = rownames(res),
+      x = "log2FoldChange",
+      y = "padj",
+      ylab = bquote(~-Log[10]~ "(p-adjusted)"),
+      pCutoff = input$DEM_padj_filter,
+      FCcutoff = input$DEM_log2FoldChange_filter,
+      labSize = input$volcano_plot_label_size,
+      selectLab = select_lab_arg,
+      max.overlaps = Inf,
+      drawConnectors = TRUE
+    ) +
       theme_cowplot(12) +
-      theme(legend.position = "top",
-            plot.subtitle = element_text(hjust = 0.5),  
-            legend.justification = "center") +
-      theme(plot.title = element_text(hjust = 0.5))
+      theme(
+        legend.position = "top",
+        legend.justification = "center",
+        plot.subtitle = element_text(hjust = 0.5),
+        plot.title = element_text(hjust = 0.5)
+      )
   })
 })
 
