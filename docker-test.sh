@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Docker Runtime Testing Script for miRQuery
+# Docker Runtime Testing Script for mirquery
 # This script tests Docker builds and validates runtime functionality
 
 set -e  # Exit on error
 
 echo "======================================"
-echo "miRQuery Docker Build & Runtime Test"
+echo "mirquery Docker Build & Runtime Test"
 echo "======================================"
 echo ""
 
@@ -17,8 +17,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-IMAGE_NAME="miRQuery-test"
-CONTAINER_NAME="miRQuery-test-container"
+IMAGE_NAME="mirquery-test"
+CONTAINER_NAME="mirquery-test-container"
 TEST_PORT=3838
 DOCKERFILE="${1:-Dockerfile}"  # Default to Dockerfile, allow override
 

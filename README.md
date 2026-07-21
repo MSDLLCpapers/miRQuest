@@ -129,13 +129,13 @@ docker-compose down           # Stop
 ```bash
 git clone https://github.com/MSDLLCpapers/miRQuery.git
 cd miRQuery
-docker build -t miRQuery:v1.0.0 .                              # Build image (15-30 min)
-docker run -d -p 3838:3838 --name miRQuery-app miRQuery:v1.0.0 # Start
+docker build -t mirquery:v1.0.0 .                              # Build image (15-30 min)
+docker run -d -p 3838:3838 --name mirquery-app mirquery:v1.0.0 # Start
 # Access at http://localhost:3838
-docker logs -f miRQuery-app                          # View logs
-docker stop miRQuery-app                             # Stop
-docker start miRQuery-app                            # Restart
-docker rm miRQuery-app                               # Remove
+docker logs -f mirquery-app                          # View logs
+docker stop mirquery-app                             # Stop
+docker start mirquery-app                            # Restart
+docker rm mirquery-app                               # Remove
 ```
 
 **Build Process:** Base image download (2-5 min) → System dependencies (3-5 min) → R packages (10-20 min) → App files (1 min)
@@ -150,7 +150,7 @@ ports:
   - "8080:3838"  # Access at http://localhost:8080
 
 # Docker CLI:
-docker run -d -p 8080:3838 --name miRQuery-app miRQuery:v1.0.0
+docker run -d -p 8080:3838 --name mirquery-app mirquery:v1.0.0
 ```
 
 **Persistent Data Storage:**
@@ -161,13 +161,13 @@ volumes:
   - ./output:/app/output
 
 # Docker CLI:
-docker run -d -p 3838:3838 -v $(pwd)/output:/app/output miRQuery:v1.0.0
+docker run -d -p 3838:3838 -v $(pwd)/output:/app/output mirquery:v1.0.0
 ```
 
 **Development Mode:**
 For development with live code reloading:
 ```bash
-docker run -d -p 3838:3838 -v $(pwd):/app miRQuery:v1.0.0
+docker run -d -p 3838:3838 -v $(pwd):/app mirquery:v1.0.0
 ```
 
 #### Troubleshooting
@@ -178,13 +178,13 @@ docker run -d -p 3838:3838 -v $(pwd):/app miRQuery:v1.0.0
 # Docker Desktop: Settings > Resources > Memory
 
 # Build fails: Clear cache and rebuild
-docker builder prune -a && docker build --no-cache -t miRQuery:v1.0.0 .
+docker builder prune -a && docker build --no-cache -t mirquery:v1.0.0 .
 
 # Network timeouts: Retry the build
 docker-compose build --no-cache
 
 # Timeout errors: Disable BuildKit
-DOCKER_BUILDKIT=0 docker build -t miRQuery:v1.0.0 .
+DOCKER_BUILDKIT=0 docker build -t mirquery:v1.0.0 .
 
 # Check build logs
 docker-compose build 2>&1 | tee build.log
@@ -193,12 +193,12 @@ docker-compose build 2>&1 | tee build.log
 **Runtime Issues:**
 ```bash
 # Container starts but app doesn't load:
-docker logs miRQuery-app  # Check logs
+docker logs mirquery-app  # Check logs
 lsof -i :3838  # Verify port not in use (macOS/Linux)
 netstat -ano | findstr :3838  # Windows
 
 # Port conflict: Use different port
-docker run -d -p 3839:3838 --name miRQuery-app miRQuery:v1.0.0
+docker run -d -p 3839:3838 --name mirquery-app mirquery:v1.0.0
 
 # Out of memory errors: Increase Docker memory limit to at least 4GB
 
@@ -208,24 +208,24 @@ docker run -d -p 3839:3838 --name miRQuery-app miRQuery:v1.0.0
 
 #### Archiving for Publications
 
-The Docker image associated with the paper *"miRQuery: A user-friendly web app for the interactive analysis and visualization of microRNA sequencing data"* is tagged as **`miRQuery:v1.0.0`** (label: `mirquest_v1.0.0`). This explicit tag ensures that the exact computational environment described in the paper can be rebuilt and archived independently of the `:latest` tag, which may change over time.
+The Docker image associated with the paper *"miRQuery: A user-friendly web app for the interactive analysis and visualization of microRNA sequencing data"* is tagged as **`mirquery:v1.0.0`** (label: `mirquery_v1.0.0`). This explicit tag ensures that the exact computational environment described in the paper can be rebuilt and archived independently of the `:latest` tag, which may change over time.
 
 **Build the publication image:**
 ```bash
 git checkout v1.0.0                                  # Use the release tag
-docker build -t miRQuery:v1.0.0 .                    # Build with explicit version tag
+docker build -t mirquery:v1.0.0 .                    # Build with explicit version tag
 ```
 
 **Save Docker image for long-term archival:**
 ```bash
-docker save miRQuery:v1.0.0 | gzip > miRQuery-v1.0.0.tar.gz  # ~1.5-2.5 GB
-sha256sum miRQuery-v1.0.0.tar.gz > checksums.txt
+docker save mirquery:v1.0.0 | gzip > mirquery-v1.0.0.tar.gz  # ~1.5-2.5 GB
+sha256sum mirquery-v1.0.0.tar.gz > checksums.txt
 ```
 
 **Load archived image to reproduce results:**
 ```bash
-docker load < miRQuery-v1.0.0.tar.gz
-docker run -d -p 3838:3838 --name miRQuery-app miRQuery:v1.0.0
+docker load < mirquery-v1.0.0.tar.gz
+docker run -d -p 3838:3838 --name mirquery-app mirquery:v1.0.0
 ```
 
 **Long-Term Archiving Guidance:**
