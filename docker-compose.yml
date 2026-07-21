@@ -1,10 +1,10 @@
 services:
-  miRQuery:
+  mirquery:
     build:
       context: .
       dockerfile: Dockerfile
-    image: miRQuery:v1.0.0
-    container_name: miRQuery-app
+    image: mirquery:v1.0.0
+    container_name: mirquery-app
     ports:
       - "3838:3838"
     # volumes:
