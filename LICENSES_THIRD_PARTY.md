@@ -1,6 +1,6 @@
-MiRQuest uses third-party libraries which may be distributed under different licenses. We have attempted to list all of these third party libraries and their licenses below.
+miRQuery uses third-party libraries which may be distributed under different licenses. We have attempted to list all of these third party libraries and their licenses below.
 
-You must agree to the terms of these licenses, in addition to the MiRQuest source code license, in order to use this software.
+You must agree to the terms of these licenses, in addition to the miRQuery source code license, in order to use this software.
 
 --------------------------------------------------
 Third party R libraries listed by License type
@@ -48,7 +48,7 @@ LGPL License (http://opensource.org/licenses/LGPL-2.1)
   * DESeq2 - https://bioconductor.org/packages/release/bioc/html/DESeq2.html
 
 --------------------------------------------------
-Code from the following sources has been modified to work in miRQuest. 
+Code from the following sources has been modified to work in miRQuery. 
 [Format: Name (Project) - URL]
 --------------------------------------------------
 We have documented where the modified code appears in the server files.

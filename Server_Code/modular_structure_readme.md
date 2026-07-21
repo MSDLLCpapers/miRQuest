@@ -1,6 +1,6 @@
 # Modular Shiny Server Structure
 
-This directory contains the modularized server code for the miRQuest Shiny application. The code has been separated into logical, functional modules while maintaining all reactive variables and their relationships.
+This directory contains the modularized server code for the miRQuery Shiny application. The code has been separated into logical, functional modules while maintaining all reactive variables and their relationships.
 
 ## File Structure
 

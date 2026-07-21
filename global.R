@@ -13,7 +13,7 @@ options(repos = BiocManager::repositories())
 
 # Docker runtime diagnostics (only runs in containerized environment)
 if (file.exists("/.dockerenv")) {
-  cat("\n=== miRQuest Docker Runtime ===\n")
+  cat("\n=== miRQuery Docker Runtime ===\n")
   cat("Working directory:", getwd(), "\n")
   cat("Library paths:", paste(.libPaths(), collapse = "\n  "), "\n")
   cat("R version:", R.version.string, "\n")

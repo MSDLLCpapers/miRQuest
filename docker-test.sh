@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Docker Runtime Testing Script for miRQuest
+# Docker Runtime Testing Script for miRQuery
 # This script tests Docker builds and validates runtime functionality
 
 set -e  # Exit on error
 
 echo "======================================"
-echo "miRQuest Docker Build & Runtime Test"
+echo "miRQuery Docker Build & Runtime Test"
 echo "======================================"
 echo ""
 
@@ -17,8 +17,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-IMAGE_NAME="mirquest-test"
-CONTAINER_NAME="mirquest-test-container"
+IMAGE_NAME="miRQuery-test"
+CONTAINER_NAME="miRQuery-test-container"
 TEST_PORT=3838
 DOCKERFILE="${1:-Dockerfile}"  # Default to Dockerfile, allow override
 
@@ -161,7 +161,7 @@ echo ""
 echo -e "${YELLOW}Step 7: Checking if critical packages loaded...${NC}"
 LOGS=$(docker logs "$CONTAINER_NAME" 2>&1)
 
-if echo "$LOGS" | grep -q "miRQuest Docker Runtime"; then
+if echo "$LOGS" | grep -q "miRQuery Docker Runtime"; then
     echo -e "${GREEN}✓ Docker runtime diagnostics executed${NC}"
 else
     echo -e "${YELLOW}⚠ Docker runtime diagnostics not found in logs${NC}"

@@ -2,7 +2,7 @@
 
 ui <- fluidPage(
   useShinyjs(),
-  titlePanel("miRQuest: Interactive Analysis of MicroRNA Sequencing Data"),
+  titlePanel("miRQuery: Interactive Analysis of MicroRNA Sequencing Data"),
   theme=bs_theme(version=5, bootswatch = "cosmo"),
   
   sidebarLayout(
@@ -101,7 +101,7 @@ ui <- fluidPage(
             fluidRow(
               column(
                 width = 12,
-                h2("Welcome to MiRQuest Quickstart"),
+                h2("Welcome to miRQuery Quickstart"),
                 p("This section provides a brief overview to get you up and running quickly. 
            Use the diagram below to understand the suggested workflow, then explore 
            the rest of the app using the tabs above.")
@@ -114,7 +114,7 @@ ui <- fluidPage(
                 h3("GitHub Repository"),
                 p("Find the source code, documentation, example files, and issue tracker here:"),
                 tags$a(
-                  href = "https://github.com/MSDLLCpapers/miRQuest",  
+                  href = "https://github.com/MSDLLCpapers/miRQuery",  
                   target = "_blank",
                   "Open GitHub Repository"
                 ),
@@ -171,9 +171,9 @@ ui <- fluidPage(
               column(
                 width = 12,
                 h3("Manuscript"),
-                p("To see an application of miRQuest and interpretation of results, please see the following paper:"),
-                p("Yang JC, Sauter J, Adam G, Carr R. MiRQuest: An Interactive App for MiRNA Sequencing Analysis. in revision at BMC Bioinformatics."),
-                p("If you use miRQuest in your work, please cite both the paper and the source code:"),
+                p("To see an application of miRQuery and interpretation of results, please see the following paper:"),
+                p("Yang JC, Sauter J, Adam G, Carr R. miRQuery: An Interactive App for MiRNA Sequencing Analysis. in revision at BMC Bioinformatics."),
+                p("If you use miRQuery in your work, please cite both the paper and the source code:"),
                 p("Zenodo placeholder")
               )
             )
