@@ -1,8 +1,8 @@
-# miRQuest: Interactive Analysis and Visualization of miRNA Sequencing Data
+# miRQuery: Interactive Analysis and Visualization of miRNA Sequencing Data
 
 ## Purpose
 
-MiRQuest is an RShiny application for the analysis of microRNA-sequencing data. MicroRNA (miRNA) are small noncoding RNA that repress translation or induce degradation of target messenger RNA (mRNA). The app features common visualization methods for high-throughput sequencing data, such as multidimensional scaling, stacked column charts, heatmaps, and boxplots to compare expression across groups for a user-specified miRNA of interest. MiRQuest further provides support for differential miRNA and gene expression analysis. Unique to miRNome sequencing data analysis, users may retrieve predicted gene targets of differentially expressed miRNA and follow up with pathway overrepresentation analysis of the gene targets. Finally, if users upload paired bulk mRNA sequencing data, they may identify differentially expressed genes and further retrieve negatively correlated miRNA-gene pairs.
+miRQuery is an RShiny application for the analysis of microRNA-sequencing data. MicroRNA (miRNA) are small noncoding RNA that repress translation or induce degradation of target messenger RNA (mRNA). The app features common visualization methods for high-throughput sequencing data, such as multidimensional scaling, stacked column charts, heatmaps, and boxplots to compare expression across groups for a user-specified miRNA of interest. miRQuery further provides support for differential miRNA and gene expression analysis. Unique to miRNome sequencing data analysis, users may retrieve predicted gene targets of differentially expressed miRNA and follow up with pathway overrepresentation analysis of the gene targets. Finally, if users upload paired bulk mRNA sequencing data, they may identify differentially expressed genes and further retrieve negatively correlated miRNA-gene pairs.
 
 ## Workflow Overview
 
@@ -10,7 +10,7 @@ Please view the Quickstart tab in the app or read the tutorial in the `www` fold
 
 ## Reproducibility
 
-MiRQuest provides **two complementary approaches** for ensuring computational reproducibility:
+miRQuery provides **two complementary approaches** for ensuring computational reproducibility:
 
 ### Option 1: renv (R Package Management)
 Use `renv` to restore the exact R package versions used in this project. This approach works well if you have R 4.4.2 already installed and want to work within your existing R environment.
@@ -83,7 +83,7 @@ nickname       Pile of Leaves
 - To clone without Git: Click the green `Code` button at the upper right of the repository, then click `Download ZIP`.
 - Extract the files from the zipped files.
 - Double click on the `Create_Exe_File.R` script. This should automatically launch RStudio; if prompted, select "Open With RStudio". Click "Run".
-- Close RStudio. Double click on the newly created "miRQuest.bat" file.
+- Close RStudio. Double click on the newly created "miRQuery.bat" file.
 - To stop the app, close the terminal.
 - Assumptions
   - Must be a Windows User
@@ -118,8 +118,8 @@ Docker ensures exact reproducibility by encapsulating R version, all packages, s
 
 **Option A: Docker Compose (Easiest)**
 ```bash
-git clone https://github.com/MSDLLCpapers/miRQuest.git
-cd miRQuest
+git clone https://github.com/MSDLLCpapers/miRQuery.git
+cd miRQuery
 docker-compose up -d          # Build and start (15-30 min first time)
 # Access at http://localhost:3838
 docker-compose down           # Stop
@@ -127,15 +127,15 @@ docker-compose down           # Stop
 
 **Option B: Standard Docker**
 ```bash
-git clone https://github.com/MSDLLCpapers/miRQuest.git
-cd miRQuest
-docker build -t mirquest:v1.0.0 .                              # Build image (15-30 min)
-docker run -d -p 3838:3838 --name mirquest-app mirquest:v1.0.0 # Start
+git clone https://github.com/MSDLLCpapers/miRQuery.git
+cd miRQuery
+docker build -t miRQuery:v1.0.0 .                              # Build image (15-30 min)
+docker run -d -p 3838:3838 --name miRQuery-app miRQuery:v1.0.0 # Start
 # Access at http://localhost:3838
-docker logs -f mirquest-app                          # View logs
-docker stop mirquest-app                             # Stop
-docker start mirquest-app                            # Restart
-docker rm mirquest-app                               # Remove
+docker logs -f miRQuery-app                          # View logs
+docker stop miRQuery-app                             # Stop
+docker start miRQuery-app                            # Restart
+docker rm miRQuery-app                               # Remove
 ```
 
 **Build Process:** Base image download (2-5 min) → System dependencies (3-5 min) → R packages (10-20 min) → App files (1 min)
@@ -150,7 +150,7 @@ ports:
   - "8080:3838"  # Access at http://localhost:8080
 
 # Docker CLI:
-docker run -d -p 8080:3838 --name mirquest-app mirquest:v1.0.0
+docker run -d -p 8080:3838 --name miRQuery-app miRQuery:v1.0.0
 ```
 
 **Persistent Data Storage:**
@@ -161,13 +161,13 @@ volumes:
   - ./output:/app/output
 
 # Docker CLI:
-docker run -d -p 3838:3838 -v $(pwd)/output:/app/output mirquest:v1.0.0
+docker run -d -p 3838:3838 -v $(pwd)/output:/app/output miRQuery:v1.0.0
 ```
 
 **Development Mode:**
 For development with live code reloading:
 ```bash
-docker run -d -p 3838:3838 -v $(pwd):/app mirquest:v1.0.0
+docker run -d -p 3838:3838 -v $(pwd):/app miRQuery:v1.0.0
 ```
 
 #### Troubleshooting
@@ -178,13 +178,13 @@ docker run -d -p 3838:3838 -v $(pwd):/app mirquest:v1.0.0
 # Docker Desktop: Settings > Resources > Memory
 
 # Build fails: Clear cache and rebuild
-docker builder prune -a && docker build --no-cache -t mirquest:v1.0.0 .
+docker builder prune -a && docker build --no-cache -t miRQuery:v1.0.0 .
 
 # Network timeouts: Retry the build
 docker-compose build --no-cache
 
 # Timeout errors: Disable BuildKit
-DOCKER_BUILDKIT=0 docker build -t mirquest:v1.0.0 .
+DOCKER_BUILDKIT=0 docker build -t miRQuery:v1.0.0 .
 
 # Check build logs
 docker-compose build 2>&1 | tee build.log
@@ -193,12 +193,12 @@ docker-compose build 2>&1 | tee build.log
 **Runtime Issues:**
 ```bash
 # Container starts but app doesn't load:
-docker logs mirquest-app  # Check logs
+docker logs miRQuery-app  # Check logs
 lsof -i :3838  # Verify port not in use (macOS/Linux)
 netstat -ano | findstr :3838  # Windows
 
 # Port conflict: Use different port
-docker run -d -p 3839:3838 --name mirquest-app mirquest:v1.0.0
+docker run -d -p 3839:3838 --name miRQuery-app miRQuery:v1.0.0
 
 # Out of memory errors: Increase Docker memory limit to at least 4GB
 
@@ -208,31 +208,31 @@ docker run -d -p 3839:3838 --name mirquest-app mirquest:v1.0.0
 
 #### Archiving for Publications
 
-The Docker image associated with the paper *"MiRQuest: A user-friendly web app for the interactive analysis and visualization of microRNA sequencing data"* is tagged as **`mirquest:v1.0.0`** (label: `mirquest_v1.0.0`). This explicit tag ensures that the exact computational environment described in the paper can be rebuilt and archived independently of the `:latest` tag, which may change over time.
+The Docker image associated with the paper *"miRQuery: A user-friendly web app for the interactive analysis and visualization of microRNA sequencing data"* is tagged as **`miRQuery:v1.0.0`** (label: `mirquest_v1.0.0`). This explicit tag ensures that the exact computational environment described in the paper can be rebuilt and archived independently of the `:latest` tag, which may change over time.
 
 **Build the publication image:**
 ```bash
 git checkout v1.0.0                                  # Use the release tag
-docker build -t mirquest:v1.0.0 .                    # Build with explicit version tag
+docker build -t miRQuery:v1.0.0 .                    # Build with explicit version tag
 ```
 
 **Save Docker image for long-term archival:**
 ```bash
-docker save mirquest:v1.0.0 | gzip > mirquest-v1.0.0.tar.gz  # ~1.5-2.5 GB
-sha256sum mirquest-v1.0.0.tar.gz > checksums.txt
+docker save miRQuery:v1.0.0 | gzip > miRQuery-v1.0.0.tar.gz  # ~1.5-2.5 GB
+sha256sum miRQuery-v1.0.0.tar.gz > checksums.txt
 ```
 
 **Load archived image to reproduce results:**
 ```bash
-docker load < mirquest-v1.0.0.tar.gz
-docker run -d -p 3838:3838 --name mirquest-app mirquest:v1.0.0
+docker load < miRQuery-v1.0.0.tar.gz
+docker run -d -p 3838:3838 --name miRQuery-app miRQuery:v1.0.0
 ```
 
 **Long-Term Archiving Guidance:**
 
 For publication-grade reproducibility, we recommend archiving the Docker image in a persistent repository that provides a DOI:
 
-1. **[Zenodo](https://zenodo.org)** (recommended) - Free, DOI-minting, supports files up to 50 GB, backed by CERN. Upload `mirquest-v1.0.0.tar.gz` and `checksums.txt`.
+1. **[Zenodo](https://zenodo.org)** (recommended) - Free, DOI-minting, supports files up to 50 GB, backed by CERN. Upload `miRQuery-v1.0.0.tar.gz` and `checksums.txt`.
 2. **[Figshare](https://figshare.com)** - Free, DOI-minting, supports files up to 20 GB per file.
 3. **Institutional data repository** - Many universities and research institutions host long-term data archives.
 
@@ -245,16 +245,16 @@ When archiving, include the following alongside the Docker image tarball:
 - Package version report (see Verifying Environment below)
 
 **Example Methods Section Citation:**
-> "Data analysis was performed using miRQuest v1.0.0 (Yang & Sauter et al.; GitHub: MSDLLCpapers/miRQuest, tag: v1.0.0) in a Docker container (archived at Zenodo: [DOI]). The image is based on Bioconductor RELEASE_3_20, containing R 4.4.2, Bioconductor 3.20, and exact package versions specified in the Dockerfile and renv.lock."
+> "Data analysis was performed using miRQuery v1.0.0 (Yang & Sauter et al.; GitHub: MSDLLCpapers/miRQuery, tag: v1.0.0) in a Docker container (archived at Zenodo: [DOI]). The image is based on Bioconductor RELEASE_3_20, containing R 4.4.2, Bioconductor 3.20, and exact package versions specified in the Dockerfile and renv.lock."
 
 #### Verifying Environment
 
 Generate a package version report for publication supplementary materials:
 
 ```bash
-docker run -d -p 3838:3838 --name mirquest-app mirquest:v1.0.0
-docker exec mirquest-app Rscript -e "write.csv(installed.packages()[,c('Package','Version')], '/tmp/packages.csv')"
-docker cp mirquest-app:/tmp/packages.csv ./mirquest-package-versions.csv
+docker run -d -p 3838:3838 --name miRQuery-app miRQuery:v1.0.0
+docker exec miRQuery-app Rscript -e "write.csv(installed.packages()[,c('Package','Version')], '/tmp/packages.csv')"
+docker cp miRQuery-app:/tmp/packages.csv ./miRQuery-package-versions.csv
 ```
 
 **Expected versions:** R 4.4.2, Bioconductor 3.20, DESeq2 1.44.0, miRNAtap 1.38.0, clusterProfiler 4.12.0
@@ -274,7 +274,7 @@ docker cp mirquest-app:/tmp/packages.csv ./mirquest-package-versions.csv
 
 ## Sample Data
 
-The demo dataset included in `inst/data` was derived from TCGA-COAD and TCGA-READ colorectal cancer data. The script used to create it is available at `Data/make_demo_dataset.R`. Note that this script requires additional R packages **not included** in the app's `renv.lock` or Docker image, as they are only needed for data preparation and not for running miRQuest itself:
+The demo dataset included in `inst/data` was derived from TCGA-COAD and TCGA-READ colorectal cancer data. The script used to create it is available at `Data/make_demo_dataset.R`. Note that this script requires additional R packages **not included** in the app's `renv.lock` or Docker image, as they are only needed for data preparation and not for running miRQuery itself:
 
 - `TCGAbiolinks` - TCGA data retrieval
 - `SummarizedExperiment` - Bioconductor data structures

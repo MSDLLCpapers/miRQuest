@@ -1,5 +1,5 @@
 # Create_Exe_File.R
-# This script creates a Windows executable file for launching the miRQuest Shiny app
+# This script creates a Windows executable file for launching the miRQuery Shiny app
 
 # Check if running on Windows
 if (.Platform$OS.type != "windows") {
@@ -16,5 +16,5 @@ if (!require("shiny.exe", quietly = TRUE)) {
 # Create the executable file
 shiny.exe()
 
-message("miRQuest.bat file has been created successfully!")
-message("You can now double-click the miRQuest.bat file to launch the application.")
+message("miRQuery.bat file has been created successfully!")
+message("You can now double-click the miRQuery.bat file to launch the application.")

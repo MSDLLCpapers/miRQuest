@@ -291,7 +291,7 @@ read_meta <- read.csv("Tumor_vs_Normal_TCGA_READ_metadata.csv")
 meta_coread <- dplyr::bind_rows(coad_meta,read_meta) 
 write.csv(meta_coread,"COREAD_Tumor_vs_Normal_Metadata.csv",row.names=FALSE)
 
-## Extract dimension 1 coordinates - downloaded from miRQuest app
+## Extract dimension 1 coordinates - downloaded from miRQuery app
 mds <- read.csv("mds_xy_2025-05-08.csv")
 names(mds)
 mds <- mds %>% select(c("SampleID", "Dim1", "Dim2", "tissue_type")) %>% 

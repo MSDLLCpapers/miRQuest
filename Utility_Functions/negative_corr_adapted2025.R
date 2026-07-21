@@ -1,4 +1,4 @@
-#' This function has been minimally modified from https://rdrr.io/bioc/anamiR/src/R/negative_cor.R (GPL-2 license) and made to be compatible with miRQuest.
+#' This function has been minimally modified from https://rdrr.io/bioc/anamiR/src/R/negative_cor.R (GPL-2 license) and made to be compatible with miRQuery.
 #' Please cite: Wang TT, Lee CY, Lai LC, Tsai MH, Lu TP, Chuang EY. anamiR: integrated analysis of MicroRNA and gene expression profiling. BMC Bioinformatics. 2019 May 14;20(1):239. doi: 10.1186/s12859-019-2870-x. PMID: 31088348; PMCID: PMC6518761.
 #' @import stats
 #' @export
