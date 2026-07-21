@@ -161,7 +161,7 @@ ui <- fluidPage(
                 h3("Walkthrough Tutorial Using the Demo Data"),
                 p("Please see the following tutorial for more help"),
                 tags$iframe(
-                  src = "MiRQuest_tutorial.pdf",
+                  src = "MiRQuery_Tutorial.pdf",
                   style = "width:100%; height:600px; border:none;"
                 )
               )
